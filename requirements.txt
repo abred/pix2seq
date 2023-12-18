@@ -1,4 +1,3 @@
-tensorflow
 ml-collections
 matplotlib
 tensorflow-datasets
@@ -6,3 +5,4 @@ tensorflow-addons
 tensorflow-text
 pycocotools
 scikit-image
+einops

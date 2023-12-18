@@ -88,7 +88,7 @@ class WarmUpAndDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
     return learning_rate
 
 
-class AdamWeightDecay(tf.keras.optimizers.legacy.Adam):
+class AdamWeightDecay(tf.keras.optimizers.Adam):
   """Adam enables L2 weight decay and clip_by_global_norm on gradients.
 
   Just adding the square of the weights to the loss function is *not* the

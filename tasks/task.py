@@ -44,6 +44,8 @@ class Task(abc.ABC):
     self.config = config
 
     train_transforms = config.task.get('train_transforms', [])
+    for t in train_transforms:
+      print(t)
     eval_transforms = config.task.get('eval_transforms', [])
     self.train_transforms = [
         transforms.TransformRegistry.lookup(t.name)(t)

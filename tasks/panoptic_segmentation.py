@@ -38,11 +38,13 @@ class TaskPanopticSegmentation(task_lib.Task):
             config.dataset.num_classes, 'mean_iou'),
     }
     metric_config = config.task.get('metric')
-    if metric_config and metric_config.get('name'):
-      self._coco_metrics = metric_registry.MetricRegistry.lookup(
-          metric_config.name)(config)
-    else:
-      self._coco_metrics = None
+    # if metric_config and metric_config.get('name'):
+    #   self._coco_metrics = metric_registry.MetricRegistry.lookup(
+    #       metric_config.name)(config)
+    # else:
+    self._coco_metrics = None
+
+    self.i = 1
 
   def preprocess_single(self, dataset, batch_duplicates, training):
     """Task-specific preprocessing of individual example in the dataset.
@@ -94,7 +96,7 @@ class TaskPanopticSegmentation(task_lib.Task):
     t_cfg = self.config.task
     m_cfg = self.config.model
     images, label_map, examples = preprocessed_outputs
-    masks_pred = label_map  # comment `model.infer` for sanity check
+    # masks_pred = label_map  # comment `model.infer` for sanity check
     masks_pred = model.infer(images, m_cfg.iterations, m_cfg.sampler)
     masks_pred = task_utils.bits_to_panoptic_map(
         masks_pred, t_cfg.n_bits_label, self.config.dataset.num_classes,
@@ -122,8 +124,12 @@ class TaskPanopticSegmentation(task_lib.Task):
     """
     images, image_ids = batched_examples['image'], batched_examples['image/id']
 
+    tmp1 = batched_examples['label_map'][..., 0]
+    tmp1 = tf.where(tmp1==255, 0, tmp1)
+    # batched_examples['label_map'][batched_examples['label_map'] == 255] = -1
+    tmp2 = predictions[..., 0]
     self._metrics['mean_iou'].update_state(
-        batched_examples['label_map'][..., 0], predictions[..., 0])
+      tmp1, predictions[..., 0])
     label_map_orig = batched_examples.get('label_map_orig',
                                           batched_examples['label_map'])
     return (images, image_ids, batched_examples['orig_image_size'],

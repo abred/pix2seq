@@ -43,7 +43,7 @@ def get_config(config_str=None):
     else:
       msize = (int(mdim), int(mdim))
   else:
-    task_variant = 'panoptic_segmentation@voc/2012_panoptic_segmentation'
+    task_variant = 'panoptic_segmentation@coco/2017_panoptic_segmentation'
     encoder_variant = 'resnet-c'
     decoder_variant = 'transunet'
     image_size = (256, 256)
@@ -122,33 +122,11 @@ def get_config(config_str=None):
           jitter_scale_max=1.0,
           min_pixels=40,
           weight=1.0,
-          shuffle_polygon_start_point=False,
+          # shuffle_polygon_start_point=False,
           max_points_per_object=128,
           metric=D(
               name='coco_panoptic_segmentation',
               results_dir='',
-          ),
-      ),
-      'video_panoptic_segmentation': D(
-          name='video_panoptic_segmentation',
-          vocab_id=18,
-          image_size=image_size,
-          n_bits_label=16,
-          max_instances_per_image=256,  # including id 0.
-          object_order='shuffle',
-          color_jitter_strength=0.,
-          jitter_scale_min=1.0,
-          jitter_scale_max=1.0,
-          weight=1.0,
-          proceeding_frames='-2,-1',
-          eval_single_frames=False,
-          eval_use_gt_cond_frames=False,
-          frames_dropout=0.1,
-          max_num_frames=100,
-          min_pixels=40,
-          metric=D(
-              name='segmentation_and_tracking_quality',
-              results_dir=''
           ),
       ),
   }
@@ -215,7 +193,7 @@ def get_config(config_str=None):
           enc_fuse_upsample='nearest',
           enc_fuse_dim=256,
           frozen_backbone=False,
-          time_scaling=1000,
+          time_scaling=1e4,
       ),
 
       optimization=D(

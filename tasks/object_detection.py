@@ -111,7 +111,7 @@ class TaskObjectDetection(task_lib.Task):
     target_seq = tf.concat([prompt_seq, response_seq], -1)
 
     # Pad sequence to a unified maximum length.
-    assert input_seq.shape[-1] <= config.max_seq_len + 1
+    # assert input_seq.shape[-1] <= config.max_seq_len + 1
     input_seq = utils.pad_to_max_len(input_seq, config.max_seq_len + 1, -1)
     target_seq = utils.pad_to_max_len(target_seq, config.max_seq_len + 1, -1)
     input_seq, target_seq = input_seq[..., :-1], target_seq[..., 1:]

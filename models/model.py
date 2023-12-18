@@ -22,6 +22,7 @@ import registry
 import utils
 from models import model_utils
 import tensorflow as tf
+import numpy as np
 
 ModelRegistry = registry.Registry()
 TrainerRegistry = registry.Registry()
@@ -59,6 +60,8 @@ class Trainer(abc.ABC):
 
     # Setup model and checkpoints.
     self._model = model = ModelRegistry.lookup(config.model.name)(config)
+    self._model(tf.random.uniform((1, 256, 256, 3)), tf.random.uniform((1, 256, 256, 16)),
+                tf.ones((1, 256, 256)), True)
     model_dir = kwargs['model_dir']
     latest_ckpt, ckpt, self._verify_restored = utils.restore_from_checkpoint(
         model_dir, False,
@@ -71,6 +74,25 @@ class Trainer(abc.ABC):
     self._checkpoint_manager = tf.train.CheckpointManager(
         ckpt, model_dir, config.train.keep_checkpoint_max)
 
+    print("trainable variables")
+    for v in self._model.trainable_variables:
+      print(v.name)
+    print("\nvariables")
+    for v in self._model.variables:
+      print(v.name)
+    print("\ntrainable variables encoder")
+    for v in self._model.encoder.trainable_variables:
+      print(v.name)
+    print("\ntrainable variables denoiser")
+    for v in self._model.denoiser.trainable_variables:
+      print(v.name)
+    print("\nvariables denoiser")
+    for v in self._model.denoiser.variables:
+      print(v.name)
+    print("\ntrainable variables denoiser conv")
+    for v in self._model.denoiser.conv_in.trainable_variables:
+      print(v.name)
+    exit()
     # Setup metrics.
     self._metrics = {
         'total_num_params': tf.keras.metrics.Mean('total_num_params'),

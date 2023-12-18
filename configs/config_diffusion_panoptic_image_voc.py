@@ -17,22 +17,22 @@
 
 # pylint: disable=invalid-name,line-too-long
 
-from configs import config_diffusion_panoptic_base as config_base
+from configs import config_diffusion_panoptic_base_voc as config_base
 from configs import transform_configs
 
-IMAGE_SIZE = '1024x1024'
-MASK_SIZE = '512x512'
+IMAGE_SIZE = '256x256'
+MASK_SIZE = '256x256'
 MODE = 'train_high_res'  # one of ['train_high_res', 'train_low_res']
-
 
 def get_config(config_str=None):
   """Returns config."""
   if config_str:
     task_variant = config_str
   else:
-    task_variant = 'panoptic_segmentation@coco/2017_panoptic_segmentation'
-  encoder_variant = 'resnet-c'
-  decoder_variant = 'transunet'
+    task_variant = 'panoptic_segmentation@voc/2012_panoptic_segmentation'
+  encoder_variant = 'resnet'
+  # decoder_variant = 'transunet'
+  decoder_variant = 'transformer'
   config = config_base.get_config(
       f'{task_variant},{encoder_variant},{decoder_variant},{IMAGE_SIZE},{MASK_SIZE}')
   image_size = [int(x) for x in IMAGE_SIZE.split('x')]
@@ -50,11 +50,12 @@ def get_config(config_str=None):
   config.model.enc_fuse_upsample = 'nearest'
   config.model.enc_fuse_dim = 256
   config.model.total_time_steps = 1.0  # for legacy compability.
-  config.decoder.mhsa_resolutions = '0'
-  config.decoder.n_mlp_blocks = 0
-  config.decoder.outp_softmax_groups = 16
-  config.decoder.in_kernel_size = 1
-  config.decoder.out_kernel_size = 1
+  config.model.pretrained_ckpt='/home/peter/data/pix2seq/obj365_pretrain/resnet_640x640_b256_s400k'
+  # config.decoder.mhsa_resolutions = '0'
+  # config.decoder.n_mlp_blocks = 0
+  # config.decoder.outp_softmax_groups = 16
+  # config.decoder.in_kernel_size = 1
+  # config.decoder.out_kernel_size = 1
   config.optimization.learning_rate_schedule = 'linear'
   config.optimization.end_lr_factor = 0.02
   config.optimization.weight_decay = 0.05
@@ -62,6 +63,45 @@ def get_config(config_str=None):
   config.optimization.warmup_epochs = 5
   config.optimization.global_clipnorm = 1.
   return config
+
+# def get_config(config_str=None):
+#   """Returns config."""
+#   if config_str:
+#     task_variant = config_str
+#   else:
+#     task_variant = 'panoptic_segmentation@voc/2012_panoptic_segmentation'
+#   encoder_variant = 'resnet-c'
+#   decoder_variant = 'transunet'
+#   config = config_base.get_config(
+#       f'{task_variant},{encoder_variant},{decoder_variant},{IMAGE_SIZE},{MASK_SIZE}')
+#   image_size = [int(x) for x in IMAGE_SIZE.split('x')]
+#   mask_size = [int(x) for x in MASK_SIZE.split('x')]
+#   config.task.train_transforms = transform_configs.get_panoptic_segmentation_train_transforms(
+#       image_size, mask_size, 1.0, 1.0, 0.)
+#   config.task.eval_transforms = transform_configs.get_panoptic_segmentation_eval_transforms(
+#       image_size)
+#   config.model.name = 'panoptic_diffusion'
+#   config.model.train_schedule = 'cosine'
+#   config.model.l_tile_factors = 1
+#   config.model.frozen_backbone = False
+#   config.model.enc_drop = 0.
+#   config.model.enc_fuse = 'pyramid_merge'
+#   config.model.enc_fuse_upsample = 'nearest'
+#   config.model.enc_fuse_dim = 256
+#   config.model.total_time_steps = 1.0  # for legacy compability.
+#   config.model.pretrained_ckpt='/home/peter/data/pix2seq/obj365_pretrain/resnet_640x640_b256_s400k'
+#   config.decoder.mhsa_resolutions = '0'
+#   config.decoder.n_mlp_blocks = 0
+#   config.decoder.outp_softmax_groups = 16
+#   config.decoder.in_kernel_size = 1
+#   config.decoder.out_kernel_size = 1
+#   config.optimization.learning_rate_schedule = 'linear'
+#   config.optimization.end_lr_factor = 0.02
+#   config.optimization.weight_decay = 0.05
+#   config.optimization.beta2 = 0.999
+#   config.optimization.warmup_epochs = 5
+#   config.optimization.global_clipnorm = 1.
+#   return config
 
 
 def get_sweep(h):

@@ -78,7 +78,7 @@ def flatten_non_batch_dims(t, out_rank):
 
 def int2bits(x, n, out_dtype=None):
   """Convert an integer x in (...) into bits in (..., n)."""
-  x = tf.bitwise.right_shift(tf.expand_dims(x, -1), tf.range(n))
+  x = tf.bitwise.right_shift(tf.expand_dims(x, -1), tf.range(n, dtype=tf.int32))
   x = tf.math.mod(x, 2)
   if out_dtype and out_dtype != x.dtype:
     x = tf.cast(x, out_dtype)
@@ -322,7 +322,7 @@ def scale_points(points, scale):
   else:
     points = tf.reshape(points, [-1, orig_shape[1], coords_len // 2, 2])
     scale = tf.expand_dims(scale, -2)
-  points = points * scale
+  points = tf_float32(points) * scale
   points = tf.reshape(points, orig_shape)
   points = preserve_reserved_tokens(points, points_orig)
   return points
@@ -361,11 +361,12 @@ def restore_from_checkpoint(model_dir, except_partial, **kwargs):
   latest_ckpt = tf.train.latest_checkpoint(model_dir)
   if latest_ckpt:
     logging.info('Restoring from latest checkpoint: %s', latest_ckpt)
-    if except_partial:
-      status = checkpoint.restore(latest_ckpt).expect_partial()
-    else:
-      status = checkpoint.restore(latest_ckpt)
+    # if except_partial:
+    #   status = checkpoint.restore(latest_ckpt).expect_partial()
+    # else:
+    status = checkpoint.restore(latest_ckpt)
     verify_restored = status.assert_consumed
+    logging.info("status %s", status)
   return latest_ckpt, checkpoint, verify_restored
 
 
@@ -506,7 +507,7 @@ def colorize(images, vmin=None, vmax=None, cmap=None):
   """
   vmin = tf.reduce_min(images) if vmin is None else vmin
   vmax = tf.reduce_max(images) if vmax is None else vmax
-  images = (images - vmin) / (vmax - vmin)
+  images = (images - vmin) / tf.math.maximum(vmax - vmin, 1)
   images = tf.squeeze(images)  # squeeze last dim if it exists
 
   indices = tf.cast(tf.round(images * 255), tf.int32)

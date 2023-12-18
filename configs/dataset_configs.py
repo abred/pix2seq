@@ -44,6 +44,24 @@ _shared_coco_dataset_config = D(
     # record_groundtruth.
     coco_annotations_dir_for_metrics=COCO_ANNOTATIONS_DIR,
     label_shift=0,
+    num_classes=91,
+    **_shared_dataset_config
+)
+
+_shared_voc_dataset_config = D(
+    # train_file_pattern=COCO_TRAIN_TFRECORD_PATTERN,
+    # val_file_pattern=COCO_VAL_TFRECORD_PATTERN,
+    train_num_examples=1464,
+    eval_num_examples=1448,
+    train_split='train',
+    eval_split='val',
+    # Directory of annotations used by the metrics.
+    # Also need to set train_filename_for_metrics and val_filename_for_metrics.
+    # If unset, groundtruth annotations should be specified via
+    # record_groundtruth.
+    # coco_annotations_dir_for_metrics=COCO_ANNOTATIONS_DIR,
+    label_shift=0,
+    num_classes=21,
     **_shared_dataset_config
 )
 
@@ -51,6 +69,16 @@ dataset_configs = {
     'coco/2017_object_detection':
         D(
             name='coco/2017_object_detection',
+            train_filename_for_metrics='instances_train2017.json',
+            val_filename_for_metrics='instances_val2017.json',
+            category_names_path=os.path.join(
+                _shared_coco_dataset_config['coco_annotations_dir_for_metrics'],
+                'instances_val2017.json'),
+            **_shared_coco_dataset_config
+        ),
+    'coco/2017_panoptic_segmentation':
+        D(
+            name='coco/2017_panoptic_segmentation',
             train_filename_for_metrics='instances_train2017.json',
             val_filename_for_metrics='instances_val2017.json',
             category_names_path=os.path.join(
@@ -83,4 +111,14 @@ dataset_configs = {
           train_filename_for_metrics='captions_train2017_eval_compatible.json',
           val_filename_for_metrics='captions_val2017_eval_compatible.json',
           **_shared_coco_dataset_config),
+    'voc/2012_panoptic_segmentation':
+        D(
+            name='voc/2012_panoptic_segmentation',
+            train_filename_for_metrics='train.txt',
+            val_filename_for_metrics='val.txt',
+            # category_names_path=os.path.join(
+            #     _shared_coco_dataset_config['coco_annotations_dir_for_metrics'],
+            #     'instances_val2017.json'),
+            **_shared_voc_dataset_config
+        ),
 }

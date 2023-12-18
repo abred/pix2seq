@@ -171,6 +171,7 @@ def get_config(config_str=None):
               use_model_pred=True,
               min_pixels=2,
               max_instances_per_image=100,
+            shuffle_polygon_start_point=False,
           ),
   }
 

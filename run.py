@@ -35,20 +35,25 @@ from metrics import coco_metrics  # pylint: disable=unused-import
 from models import ar_model  # pylint: disable=unused-import
 from models import image_ar_model  # pylint: disable=unused-import
 from models import image_diffusion_model  # pylint: disable=unused-import
-from models import latent_diffusion_model  # pylint: disable=unused-import
+# from models import latent_diffusion_model  # pylint: disable=unused-import
 from models import video_diffusion_model  # pylint: disable=unused-import
 from models import image_discrete_diffusion_model  # pylint: disable=unused-import
 from models import model as model_lib
 from models import panoptic_diffusion  # pylint: disable=unused-import
 # pylint: disable=unused-import
 from tasks import captioning
-from tasks import image_generation
+# from tasks import image_generation
 from tasks import instance_segmentation
+from tasks import panoptic_segmentation
 from tasks import keypoint_detection
 from tasks import object_detection
 # pylint: enable=unused-import
 from tasks import task as task_lib
 import tensorflow as tf
+
+import skimage.io
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 TRAIN = 'train'
@@ -135,22 +140,28 @@ def build_tasks_and_datasets(config: ml_collections.ConfigDict, training: bool):
   return tasks, mixed_datasets, ds
 
 
-def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy):
+def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy, model=None):
   """Perform evaluation."""
   eval_tag = config.eval.tag
   summary_writer = tf.summary.create_file_writer(FLAGS.model_dir)
 
   with strategy.scope():
     # Restore model checkpoint.
-    model = model_lib.ModelRegistry.lookup(config.model.name)(config)
-    logging.info('Restoring from %s', ckpt)
-    checkpoint = tf.train.Checkpoint(
+    if model is None:
+      model = model_lib.ModelRegistry.lookup(config.model.name)(config)
+      logging.info('Restoring from %s', ckpt)
+      checkpoint = tf.train.Checkpoint(
         model=model, global_step=tf.Variable(0, dtype=tf.int64))
-    checkpoint.restore(ckpt).expect_partial()  # Not restore optimizer.
-    global_step = checkpoint.global_step
-    logging.info('Performing eval at step %d', global_step.numpy())
+      checkpoint.restore(ckpt).expect_partial()  # Not restore optimizer.
+      global_step = checkpoint.global_step
+      logging.info('Performing eval at step %d', global_step.numpy())
+      cur_train_step = global_step.numpy()
+    else:
+      logging.info('Performing eval at step %d', ckpt)
+      cur_train_step = ckpt
 
   def single_step(examples):
+    print(list(examples.keys()))
     preprocessed_outputs = task.preprocess_batched(examples, training=False)
     infer_outputs = task.infer(model, preprocessed_outputs)
     return task.postprocess_tpu(*infer_outputs)
@@ -175,7 +186,7 @@ def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy):
           per_step_outputs = run_single_step(iterator)
           task.postprocess_cpu(
               per_step_outputs,
-              train_step=global_step.numpy(),
+              train_step=cur_train_step,
               eval_step=cur_step,
               summary_tag=eval_tag)
         cur_step += 1
@@ -194,9 +205,8 @@ def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy):
     logging.info('Finished eval in %.2f mins', (time.time() - start_time) / 60.)
 
   # Write summaries and record results as JSON.
-  cur_step = global_step.numpy()
-  result = task.evaluate(summary_writer, cur_step, eval_tag)
-  result.update({'global_step': cur_step})
+  result = task.evaluate(summary_writer, cur_train_step, eval_tag)
+  result.update({'global_step': cur_train_step})
   logging.info(result)
 
   result_json_path = os.path.join(FLAGS.model_dir, eval_tag + '_result.json')
@@ -211,7 +221,7 @@ def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy):
 
 
 def perform_training(config, datasets, tasks, train_steps, steps_per_loop,
-                     num_train_examples, strategy):
+                     num_train_examples, strategy, dataset_val=None, task_val=None, eval_steps=None):
   """Main training logic."""
   with strategy.scope():
     # Setup training elements.
@@ -231,6 +241,7 @@ def perform_training(config, datasets, tasks, train_steps, steps_per_loop,
     global_step = trainer.optimizer.iterations
     cur_step = global_step.numpy()
     timestamp = time.time()
+    loop_step = 0
     while cur_step < train_steps:
       with summary_writer.as_default():
         train_multiple_steps(data_iterators, tasks)
@@ -257,6 +268,17 @@ def perform_training(config, datasets, tasks, train_steps, steps_per_loop,
       logging.info('Completed: {} / {} steps ({:.2f}%), ETA {:.2f} mins'.format(
           cur_step, train_steps, progress, eta))
       trainer.reset()
+      # for t in tasks:
+      #   t.reset_metrics()
+
+
+      if task_val is not None and loop_step % 3 == 2:
+        perform_evaluation(
+          config, dataset_val, task_val, eval_steps, cur_step,
+          strategy, model=trainer.model)
+        # with summary_writer.as_default():
+        #   per_step_outputs = eval_step(data_iterator_val, tasks_val[0], trainer.model())
+      loop_step += 1
     logging.info('###########################################')
     logging.info('Training complete...')
     logging.info('###########################################')
@@ -267,6 +289,7 @@ def main(unused_argv):
     tf.config.run_functions_eagerly(True)
   strategy = utils.build_strategy(FLAGS.use_tpu, FLAGS.master)
 
+  os.makedirs(FLAGS.model_dir, exist_ok=True)
 
   training = FLAGS.mode == TRAIN
   config = utils.get_and_log_config(FLAGS.config, FLAGS.model_dir, training)
@@ -280,12 +303,19 @@ def main(unused_argv):
       config.datasets = [config.dataset]
     tasks, dses, dataset = build_tasks_and_datasets(config, training)
 
+    if training:
+      tasks_eval, dses_eval, dataset_eval = build_tasks_and_datasets(config, False)
+
     # Calculate steps stuff using last task info (assuming all tasks the same.)
     train_steps = utils.get_train_steps(
         dataset, config.train.steps, config.train.epochs,
         config.train.batch_size)
-    eval_steps = utils.get_eval_steps(
-        dataset, config.eval.steps, config.eval.batch_size)
+    if training:
+      eval_steps = utils.get_eval_steps(
+        dataset_eval, config.eval.steps, config.eval.batch_size)
+      eval_steps = min(eval_steps, 100)
+    else:
+      eval_steps = None
     checkpoint_steps = utils.get_checkpoint_steps(
         dataset, config.train.checkpoint_steps,
         config.train.checkpoint_epochs, config.train.batch_size)
@@ -293,7 +323,7 @@ def main(unused_argv):
 
   if training:
     perform_training(config, dses, tasks, train_steps, checkpoint_steps,
-                     dataset.num_train_examples, strategy)
+                     dataset.num_train_examples, strategy, dses_eval[0], tasks_eval[0], eval_steps)
   else:
     # For eval, only one task and one dataset is passed in.
     assert len(dses) == 1, 'Only one dataset is accepted in eval.'

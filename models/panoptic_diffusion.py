@@ -69,14 +69,14 @@ class Model(tf.keras.models.Model):
           config.resnet_sk_ratio, config.num_encoder_layers, config.dim_att,
           mlp_ratio, config.num_heads, config.drop_path, config.drop_units,
           config.drop_att, config.pos_encoding, config.use_cls_token,
-          name='rest', trainable=encoder_trainable)
+          name='encoder', trainable=encoder_trainable)
       self.encoder_ema = ResNetTransformer(
           config.image_size[0], config.image_size[1], config.resnet_variant,
           config.resnet_depth, config.resnet_width_multiplier,
           config.resnet_sk_ratio, config.num_encoder_layers, config.dim_att,
           mlp_ratio, config.num_heads, config.drop_path, config.drop_units,
           config.drop_att, config.pos_encoding, config.use_cls_token,
-          name='rest', trainable=False)
+          name='encoder', trainable=False)
 
     if config.enc_fuse == 'pyramid_merge':
       fuse_class = convnets_lib.FeaturePyramidMerge
